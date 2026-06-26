@@ -1,22 +1,33 @@
 import tkinter as tk
 from tkinter import ttk
 
+from config import CLOUD_URL , LOCAL_URL, WEBSOCKET_URL
+from tunnel.websocket_client import ZygnWebSocketClient
 
-CLOUD_URL = "https://dev-arivu-frontend.rover.zygn.app/"
-LOCAL_URL = "http://localhost:9000"
+EMPLOYEE_ID = 1
+ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoxLCJlbWFpbCI6ImFyaXZ1QGdtYWlsLmNvbSIsImZ1bGxuYW1lIjoiU2FnYXIgQmlyYWRhciIsImluaXRpYWxzIjoiU0IiLCJ1c2VyVHlwZSI6IkVtcGxveWVlIiwiZW1wbG95ZWVJZCI6MSwiY29tcGFueUlkIjoxLCJmaXJzdE5hbWUiOiJTYWdhciIsImxhc3ROYW1lIjoiQmlyYWRhciIsIm1vYmlsZU51bWJlciI6IjkxNjQzNjEyMzgiLCJlbXBsb3llZUVtYWlsSWQiOiJzYWdhci56eWduQGdtYWlsLmNvbSIsImVtcGxveWVlTnVtYmVyIjoiRU1QMDAwMDEiLCJhY2Nlc3MiOiJFbmFibGVkIiwiYXR0ZW5kYW5jZSI6IkVuYWJsZWQiLCJ2aXNpdG9ySWQiOiJmNTY4YTBlOWM1YTJmMHdlYjcyMzRjIiwiY29tcGFueU5hbWUiOiJQVEcgUHJpdmF0ZSBMaW1pdGVkIiwidG9NYWlsIjoicHRndGVjaCIsImVtcGxveWVlVHlwZSI6IlVzZXIiLCJjb21wYW55U3RhdHVzIjoiQWN0aXZlIiwiY29tcGFueVR5cGUiOiJDdXN0b21lciIsImNvbXBhbnlnc3ROdW1iZXIiOiJHU1RJTjI5MDk4ODlENiIsImNvbXBhbnlSZWdpc3RlcmVkWWVhciI6MjAyMywiY291bnRyeUNvZGUiOiJJTiIsImNvdW50cnkiOiJJbmRpYSJ9LCJlbXBsb3llZVJvbGVzIjpbeyJ0ZWFtIjoiQWRtaW4iLCJyb2xlIjoiTWFuYWdlciJ9LHsidGVhbSI6Ik1hcmtldGluZyIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiRGVzaWduIiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJQcm9jdXJlbWVudCIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiSW52ZW50b3J5Iiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJIUiIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiQWNjb3VudHMiLCJyb2xlIjoiTWFuYWdlciJ9LHsidGVhbSI6IlNhbGVzIiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJPbnNpdGUiLCJyb2xlIjoiTWFuYWdlciJ9XSwiaWF0IjoxNzgyNDcxNzU4LCJleHAiOjE3ODI1MTQ5NTh9.AAe_YXrUKZR4-bLnoUGoEobfM2hidniUGjNBy-nYEWQ"
+STATUS_DISCONNECTED = "disconnected"
+STATUS_CONNECTING = "connecting"
+STATUS_AUTHENTICATING = "authenticating"
+STATUS_CONNECTED = "connected"
+STATUS_ERROR = "error"
+STATUS_DOT = "\u25cf"
 
 
 class zygnConnectorApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.connected = False
+        self.status = STATUS_DISCONNECTED
+        self.last_error = None
+        self.websocket_client = None
 
         self.title("ZYGN CONNECTOR")
         self.geometry("420x360")
         self.minsize(360, 320)
         self.resizable(False, False)
         self.configure(bg="#f6f7f9")
+        self.protocol("WM_DELETE_WINDOW", self._handle_window_close)
 
         self._configure_styles()
         self._build_layout()
@@ -26,10 +37,7 @@ class zygnConnectorApp(tk.Tk):
         self.style = ttk.Style(self)
         self.style.theme_use("clam")
 
-        self.style.configure(
-            "Connector.TFrame",
-            background="#f6f7f9",
-        )
+        self.style.configure("Connector.TFrame", background="#f6f7f9")
         self.style.configure(
             "Title.TLabel",
             background="#f6f7f9",
@@ -79,7 +87,7 @@ class zygnConnectorApp(tk.Tk):
         self.action_button = ttk.Button(
             shell,
             style="Connect.TButton",
-            command=self._toggle_connection,
+            command=self._handle_action,
         )
         self.action_button.pack(anchor="center")
 
@@ -87,14 +95,93 @@ class zygnConnectorApp(tk.Tk):
         label = ttk.Label(parent, text=text, style="FieldLabel.TLabel")
         label.pack(anchor="w")
 
-    def _toggle_connection(self):
-        self.connected = not self.connected
+    def _handle_action(self):
+        if self.status == STATUS_CONNECTED:
+            self._disconnect_websocket()
+            return
+
+        if self.status in (STATUS_CONNECTING, STATUS_AUTHENTICATING):
+            return
+
+        self._connect_websocket()
+
+    def _connect_websocket(self):
+        self.status = STATUS_CONNECTING
+        self.last_error = None
         self._render_state()
 
+        self.websocket_client = ZygnWebSocketClient(
+            WEBSOCKET_URL,
+            ACCESS_TOKEN,
+            EMPLOYEE_ID,
+            on_open=lambda: self._run_on_ui_thread(self._mark_authenticating),
+            on_identified=lambda: self._run_on_ui_thread(self._mark_connected),
+            on_close=lambda: self._run_on_ui_thread(self._mark_disconnected),
+            on_error=lambda error: self._run_on_ui_thread(
+                lambda: self._mark_error(error)
+            ),
+        )
+        self.websocket_client.connect()
+
+    def _disconnect_websocket(self):
+        if self.websocket_client:
+            self.websocket_client.disconnect()
+
+        self.status = STATUS_DISCONNECTED
+        self._render_state()
+
+    def _handle_window_close(self):
+        if self.websocket_client:
+            self.websocket_client.disconnect()
+
+        self.destroy()
+
+    def _mark_authenticating(self):
+        self.status = STATUS_AUTHENTICATING
+        self._render_state()
+
+    def _mark_connected(self):
+        self.status = STATUS_CONNECTED
+        self._render_state()
+
+    def _mark_disconnected(self):
+        if self.status == STATUS_ERROR:
+            return
+
+        self.status = STATUS_DISCONNECTED
+        self._render_state()
+
+    def _mark_error(self, error):
+        self.status = STATUS_ERROR
+        self.last_error = error
+        self._render_state()
+
+    def _run_on_ui_thread(self, callback):
+        self.after(0, callback)
+
     def _render_state(self):
-        if self.connected:
-            self.status_label.configure(text="● Connected", foreground="#15803d")
-            self.action_button.configure(text="Disconnect")
+        if self.status == STATUS_CONNECTED:
+            self.status_label.configure(
+                text=f"{STATUS_DOT} Connected", foreground="#15803d"
+            )
+            self.action_button.configure(text="Disconnect", state="normal")
+        elif self.status == STATUS_CONNECTING:
+            self.status_label.configure(
+                text=f"{STATUS_DOT} Connecting...", foreground="#b45309"
+            )
+            self.action_button.configure(text="Connect", state="disabled")
+        elif self.status == STATUS_AUTHENTICATING:
+            self.status_label.configure(
+                text=f"{STATUS_DOT} Authenticating...", foreground="#b45309"
+            )
+            self.action_button.configure(text="Connect", state="disabled")
+        elif self.status == STATUS_ERROR:
+            self.status_label.configure(
+                text=f"{STATUS_DOT} Error: {self.last_error}", foreground="#dc2626"
+            )
+            self.action_button.configure(text="Connect", state="normal")
         else:
-            self.status_label.configure(text="● Disconnected", foreground="#dc2626")
-            self.action_button.configure(text="Connect")
+            self.status_label.configure(
+                text=f"{STATUS_DOT} Disconnected", foreground="#dc2626"
+            )
+            self.action_button.configure(text="Connect", state="normal")
