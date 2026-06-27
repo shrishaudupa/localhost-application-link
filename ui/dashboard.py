@@ -4,8 +4,6 @@ from tkinter import ttk
 from config import CLOUD_URL , LOCAL_URL, WEBSOCKET_URL
 from tunnel.websocket_client import ZygnWebSocketClient
 
-EMPLOYEE_ID = 1
-ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjoxLCJlbWFpbCI6ImFyaXZ1QGdtYWlsLmNvbSIsImZ1bGxuYW1lIjoiU2FnYXIgQmlyYWRhciIsImluaXRpYWxzIjoiU0IiLCJ1c2VyVHlwZSI6IkVtcGxveWVlIiwiZW1wbG95ZWVJZCI6MSwiY29tcGFueUlkIjoxLCJmaXJzdE5hbWUiOiJTYWdhciIsImxhc3ROYW1lIjoiQmlyYWRhciIsIm1vYmlsZU51bWJlciI6IjkxNjQzNjEyMzgiLCJlbXBsb3llZUVtYWlsSWQiOiJzYWdhci56eWduQGdtYWlsLmNvbSIsImVtcGxveWVlTnVtYmVyIjoiRU1QMDAwMDEiLCJhY2Nlc3MiOiJFbmFibGVkIiwiYXR0ZW5kYW5jZSI6IkVuYWJsZWQiLCJ2aXNpdG9ySWQiOiJmNTY4YTBlOWM1YTJmMHdlYjcyMzRjIiwiY29tcGFueU5hbWUiOiJQVEcgUHJpdmF0ZSBMaW1pdGVkIiwidG9NYWlsIjoicHRndGVjaCIsImVtcGxveWVlVHlwZSI6IlVzZXIiLCJjb21wYW55U3RhdHVzIjoiQWN0aXZlIiwiY29tcGFueVR5cGUiOiJDdXN0b21lciIsImNvbXBhbnlnc3ROdW1iZXIiOiJHU1RJTjI5MDk4ODlENiIsImNvbXBhbnlSZWdpc3RlcmVkWWVhciI6MjAyMywiY291bnRyeUNvZGUiOiJJTiIsImNvdW50cnkiOiJJbmRpYSJ9LCJlbXBsb3llZVJvbGVzIjpbeyJ0ZWFtIjoiQWRtaW4iLCJyb2xlIjoiTWFuYWdlciJ9LHsidGVhbSI6Ik1hcmtldGluZyIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiRGVzaWduIiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJQcm9jdXJlbWVudCIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiSW52ZW50b3J5Iiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJIUiIsInJvbGUiOiJNYW5hZ2VyIn0seyJ0ZWFtIjoiQWNjb3VudHMiLCJyb2xlIjoiTWFuYWdlciJ9LHsidGVhbSI6IlNhbGVzIiwicm9sZSI6Ik1hbmFnZXIifSx7InRlYW0iOiJPbnNpdGUiLCJyb2xlIjoiTWFuYWdlciJ9XSwiaWF0IjoxNzgyNTY5MDAzLCJleHAiOjE3ODI1Njk2MDN9.on6bqltnMXe6RVJq6ZcrfOrHNWmW4pLJSJGe_AUump4"
 STATUS_DISCONNECTED = "disconnected"
 STATUS_CONNECTING = "connecting"
 STATUS_AUTHENTICATING = "authenticating"
@@ -15,9 +13,10 @@ STATUS_DOT = "\u25cf"
 
 
 class zygnConnectorApp(tk.Tk):
-    def __init__(self):
+    def __init__(self, auth_session):
         super().__init__()
 
+        self.auth_session = auth_session
         self.status = STATUS_DISCONNECTED
         self.last_error = None
         self.websocket_client = None
@@ -112,8 +111,8 @@ class zygnConnectorApp(tk.Tk):
 
         self.websocket_client = ZygnWebSocketClient(
             WEBSOCKET_URL,
-            ACCESS_TOKEN,
-            EMPLOYEE_ID,
+            self.auth_session.access_token,
+            self.auth_session.employee_id,
             on_open=lambda: self._run_on_ui_thread(self._mark_authenticating),
             on_identified=lambda: self._run_on_ui_thread(self._mark_connected),
             on_close=lambda: self._run_on_ui_thread(self._mark_disconnected),

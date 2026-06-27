@@ -93,6 +93,8 @@ class ZygnWebSocketClient:
             print("Received tallyPayload:")
             print(parsed_message.get("payload"))
 
+            request_id = parsed_message.get("requestId")
+
             try:
                 response = requests.post(
                     "http://localhost:9000",
@@ -106,16 +108,34 @@ class ZygnWebSocketClient:
                 print(f"Tally Response ({response.status_code}):")
                 print(response.text)
 
+                # Send response back to Node.js
+                ws.send(json.dumps({
+                    "type": "tallyPayloadResponse",
+                    "requestId": request_id,
+                    "payload": response.text
+                }))
+
             except requests.RequestException as e:
                 print(f"Failed to send payload to Tally: {e}")
 
+                # Send error back to Node.js
+                ws.send(json.dumps({
+                    "type": "tallyPayloadResponse",
+                    "requestId": request_id,
+                    "error": True,
+                    "payload": str(e)
+                }))
+
         elif parsed_message.get("type") == "error":
             print(f"WebSocket error: {parsed_message.get('payload', 'Unknown error')}")
+
             if self.on_error:
                 self.on_error(str(parsed_message.get("payload", "WebSocket error")))
 
         if self.on_message:
             self.on_message(parsed_message)
+
+
 
     def _send_identification(self, ws):
         payload = {
