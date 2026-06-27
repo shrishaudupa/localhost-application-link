@@ -1,5 +1,6 @@
 import json
 import threading
+import requests
 
 
 class ZygnWebSocketClient:
@@ -87,6 +88,27 @@ class ZygnWebSocketClient:
 
         if parsed_message.get("type") == "connection_ack":
             self._send_identification(ws)
+
+        elif parsed_message.get("type") == "tallyPayload":
+            print("Received tallyPayload:")
+            print(parsed_message.get("payload"))
+
+            try:
+                response = requests.post(
+                    "http://localhost:9000",
+                    data=parsed_message.get("payload"),
+                    headers={
+                        "Content-Type": "text/xml; charset=utf-8"
+                    },
+                    timeout=30,
+                )
+
+                print(f"Tally Response ({response.status_code}):")
+                print(response.text)
+
+            except requests.RequestException as e:
+                print(f"Failed to send payload to Tally: {e}")
+
         elif parsed_message.get("type") == "error":
             print(f"WebSocket error: {parsed_message.get('payload', 'Unknown error')}")
             if self.on_error:
@@ -102,7 +124,9 @@ class ZygnWebSocketClient:
                 "token": self.token,
                 "employeeId": self.employee_id,
             },
+            "function": "tallySocket",
         }
+
         ws.send(json.dumps(payload))
 
         if self.on_identified:
