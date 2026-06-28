@@ -1,8 +1,11 @@
 from ui.login import LoginApp
 from ui.dashboard import zygnConnectorApp
+from database.database import initialize_database
 
 
 def main():
+    initialize_database()
+
     login = LoginApp()
     login.mainloop()
 

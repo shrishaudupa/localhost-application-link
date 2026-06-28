@@ -2,6 +2,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
+from database.database import get_saved_emails, save_email, delete_email
+from services.credentials import CredentialService
 from services.auth import AuthService
 
 
@@ -11,6 +13,7 @@ class LoginApp(tk.Tk):
 
         self.auth_session = None
         self.auth_service = AuthService()
+        self.credential_service = CredentialService()
 
         self.title("ZYGN CONNECTOR - Login")
         self.geometry("420x360")
@@ -26,24 +29,28 @@ class LoginApp(tk.Tk):
         self.style.theme_use("clam")
 
         self.style.configure("Login.TFrame", background="#f6f7f9")
+
         self.style.configure(
             "Title.TLabel",
             background="#f6f7f9",
             foreground="#1f2937",
             font=("Segoe UI", 18, "bold"),
         )
+
         self.style.configure(
             "FieldLabel.TLabel",
             background="#f6f7f9",
             foreground="#4b5563",
             font=("Segoe UI", 10, "bold"),
         )
+
         self.style.configure(
             "Error.TLabel",
             background="#f6f7f9",
             foreground="#dc2626",
             font=("Segoe UI", 9),
         )
+
         self.style.configure(
             "Login.TButton",
             font=("Segoe UI", 11, "bold"),
@@ -54,20 +61,51 @@ class LoginApp(tk.Tk):
         shell = ttk.Frame(self, style="Login.TFrame", padding=(42, 32))
         shell.pack(fill="both", expand=True)
 
-        title = ttk.Label(shell, text="ZYGN CONNECTOR", style="Title.TLabel")
-        title.pack(anchor="center", pady=(0, 26))
+        ttk.Label(
+            shell,
+            text="ZYGN CONNECTOR",
+            style="Title.TLabel",
+        ).pack(anchor="center", pady=(0, 26))
 
         self._add_label(shell, "Email")
-        self.email_entry = ttk.Entry(shell, font=("Segoe UI", 11))
+
+        emails = get_saved_emails()
+
+        self.email_entry = ttk.Combobox(
+            shell,
+            values=emails,
+            font=("Segoe UI", 11),
+        )
         self.email_entry.pack(fill="x", pady=(4, 16), ipady=5)
-        self.email_entry.insert(0, "shrisha@gmail.com")
+
+        self.email_entry.bind(
+            "<<ComboboxSelected>>",
+            self._on_email_selected,
+        )
 
         self._add_label(shell, "Password")
-        self.password_entry = ttk.Entry(shell, font=("Segoe UI", 11), show="*")
-        self.password_entry.pack(fill="x", pady=(4, 18), ipady=5)
-        self.password_entry.insert(0, "pwd@123")
 
-        self.error_label = ttk.Label(shell, text="", style="Error.TLabel", wraplength=330)
+        self.password_entry = ttk.Entry(
+            shell,
+            font=("Segoe UI", 11),
+            show="*",
+        )
+        self.password_entry.pack(fill="x", pady=(4, 18), ipady=5)
+
+        self.remember_var = tk.BooleanVar(value=False)
+
+        ttk.Checkbutton(
+            shell,
+            text="Remember Me",
+            variable=self.remember_var,
+        ).pack(anchor="w", pady=(0, 15))
+
+        self.error_label = ttk.Label(
+            shell,
+            text="",
+            style="Error.TLabel",
+            wraplength=330,
+        )
         self.error_label.pack(fill="x", pady=(0, 18))
 
         self.login_button = ttk.Button(
@@ -79,11 +117,19 @@ class LoginApp(tk.Tk):
         self.login_button.pack(anchor="center")
 
         self.bind("<Return>", lambda _event: self._handle_login())
+
+        if emails:
+            self.email_entry.current(0)
+            self._on_email_selected()
+
         self.email_entry.focus_set()
 
     def _add_label(self, parent, text):
-        label = ttk.Label(parent, text=text, style="FieldLabel.TLabel")
-        label.pack(anchor="w")
+        ttk.Label(
+            parent,
+            text=text,
+            style="FieldLabel.TLabel",
+        ).pack(anchor="w")
 
     def _handle_login(self):
         email = self.email_entry.get().strip()
@@ -94,6 +140,7 @@ class LoginApp(tk.Tk):
             return
 
         self._set_loading(True)
+
         threading.Thread(
             target=self._login_in_background,
             args=(email, password),
@@ -103,28 +150,72 @@ class LoginApp(tk.Tk):
     def _login_in_background(self, email, password):
         try:
             session = self.auth_service.login(email, password)
-        except Exception as error:
-            self.after(0, lambda: self._handle_login_error(str(error)))
-            return
 
-        self.after(0, lambda: self._handle_login_success(session))
+            self.after(
+                0,
+                lambda: self._handle_login_success(session),
+            )
+
+        except Exception as error:
+            self.after(
+                0,
+                lambda: self._handle_login_error(str(error)),
+            )
+
+    def _on_email_selected(self, event=None):
+        email = self.email_entry.get().strip()
+
+        password = self.credential_service.get_password(email)
+
+        self.password_entry.delete(0, tk.END)
+
+        if password:
+            self.password_entry.insert(0, password)
+            self.remember_var.set(True)
+        else:
+            self.remember_var.set(False)
+
+        self.password_entry.focus()
+        self.password_entry.icursor(tk.END)
+
+    def _remember_user(self, email, password):
+        if self.remember_var.get():
+            save_email(email)
+            self.credential_service.save_password(email, password)
+        else:
+            delete_email(email)
+            self.credential_service.delete_password(email)
+
+        self.email_entry["values"] = get_saved_emails()
 
     def _handle_login_success(self, session):
+        email = self.email_entry.get().strip()
+        password = self.password_entry.get()
+
+        self._remember_user(email, password)
+
         self.auth_session = session
         self.destroy()
 
     def _handle_login_error(self, message):
         self._set_loading(False)
+
+        self.password_entry.delete(0, tk.END)
+        self.password_entry.focus_set()
+
         self._show_error(message)
 
     def _set_loading(self, is_loading):
         state = "disabled" if is_loading else "normal"
+
         self.login_button.configure(
             text="Logging in..." if is_loading else "Login",
             state=state,
         )
+
         self.email_entry.configure(state=state)
         self.password_entry.configure(state=state)
+
         if is_loading:
             self._show_error("")
 
