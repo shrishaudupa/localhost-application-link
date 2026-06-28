@@ -95,6 +95,7 @@ class ZygnWebSocketClient:
 
             request_id = parsed_message.get("requestId")
 
+            # Send the payload to Tally using requests
             try:
                 response = requests.post(
                     "http://localhost:9000",
