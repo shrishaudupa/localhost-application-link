@@ -101,7 +101,7 @@ class ZygnWebSocketClient:
                     "http://localhost:9000",
                     data=parsed_message.get("payload"),
                     headers={
-                        "Content-Type": "text/xml; charset=utf-8"
+                        "Content-Type": "text/xml"
                     },
                     timeout=30,
                 )
