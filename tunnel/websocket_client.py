@@ -91,7 +91,6 @@ class ZygnWebSocketClient:
 
         elif parsed_message.get("type") == "tallyPayload":
             print("Received tallyPayload:")
-            print(parsed_message.get("payload"))
 
             request_id = parsed_message.get("requestId")
 
@@ -105,9 +104,6 @@ class ZygnWebSocketClient:
                     },
                     timeout=30,
                 )
-
-                print(f"Tally Response ({response.status_code}):")
-                print(response.text)
 
                 # Send response back to Node.js
                 ws.send(json.dumps({
