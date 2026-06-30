@@ -69,7 +69,7 @@ class LoginApp(ctk.CTk):
         )
         self.email_entry.pack(fill="x", pady=(6, 20))
         # Direct key entry string handling bind
-        self.email_entry._entry.bind("<KeyRelease>", self._on_email_selected) 
+        self.email_entry._entry.bind("<FocusOut>", self._on_email_focus_out)
 
         # --- Password Field ---
         self._add_label(shell, "Password")
@@ -228,6 +228,18 @@ class LoginApp(ctk.CTk):
 
     def _show_error(self, message):
         self.error_label.configure(text=message)
+
+    def _on_email_focus_out(self, event=None):
+        email = self.email_entry.get().strip()
+        password = self.credential_service.get_password(email)
+
+        self.password_entry.delete(0, tk.END)
+
+        if password:
+            self.password_entry.insert(0, password)
+            self.remember_var.set(True)
+        else:
+            self.remember_var.set(False)
 
 
 if __name__ == "__main__":
