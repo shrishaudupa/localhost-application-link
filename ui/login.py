@@ -1,13 +1,17 @@
 import threading
 import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 
 from database.database import get_saved_emails, save_email, delete_email
 from services.credentials import CredentialService
 from services.auth import AuthService
 
+# Set global appearance and color theme
+ctk.set_appearance_mode("light")  # Options: "System", "Dark", "Light"
+ctk.set_default_color_theme("blue")  # Using built-in blue as base accent
 
-class LoginApp(tk.Tk):
+
+class LoginApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
@@ -15,120 +19,133 @@ class LoginApp(tk.Tk):
         self.auth_service = AuthService()
         self.credential_service = CredentialService()
 
+        # Window Settings
         self.title("ZYGN CONNECTOR - Login")
-        self.geometry("420x360")
-        self.minsize(360, 320)
+        self.geometry("440x480")
         self.resizable(False, False)
-        self.configure(bg="#f6f7f9")
+        
+        # Color Palette Configuration
+        self.bg_color = "#FFFFFF"
+        self.text_primary = "#111827"    # Dark slate/gray
+        self.text_secondary = "#4B5563"  # Cool gray
+        self.accent_color = "#3B82F6"    # Vibrant primary blue
+        self.accent_hover = "#2563EB"    # Darker blue for hover state
+        self.error_color = "#EF4444"     # Smooth red
 
-        self._configure_styles()
+        self.configure(fg_color=self.bg_color)
         self._build_layout()
 
-    def _configure_styles(self):
-        self.style = ttk.Style(self)
-        self.style.theme_use("clam")
-
-        self.style.configure("Login.TFrame", background="#f6f7f9")
-
-        self.style.configure(
-            "Title.TLabel",
-            background="#f6f7f9",
-            foreground="#1f2937",
-            font=("Segoe UI", 18, "bold"),
-        )
-
-        self.style.configure(
-            "FieldLabel.TLabel",
-            background="#f6f7f9",
-            foreground="#4b5563",
-            font=("Segoe UI", 10, "bold"),
-        )
-
-        self.style.configure(
-            "Error.TLabel",
-            background="#f6f7f9",
-            foreground="#dc2626",
-            font=("Segoe UI", 9),
-        )
-
-        self.style.configure(
-            "Login.TButton",
-            font=("Segoe UI", 11, "bold"),
-            padding=(28, 10),
-        )
-
     def _build_layout(self):
-        shell = ttk.Frame(self, style="Login.TFrame", padding=(42, 32))
-        shell.pack(fill="both", expand=True)
+        # Container frame for margins and alignment
+        shell = ctk.CTkFrame(self, fg_color=self.bg_color, corner_radius=0)
+        shell.pack(fill="both", expand=True, padx=40, pady=40)
 
-        ttk.Label(
+        # App branding header
+        ctk.CTkLabel(
             shell,
             text="ZYGN CONNECTOR",
-            style="Title.TLabel",
-        ).pack(anchor="center", pady=(0, 26))
+            text_color=self.text_primary,
+            font=("Segoe UI", 24, "bold"),
+        ).pack(anchor="w", pady=(10, 30))
 
+        # --- Email Field ---
         self._add_label(shell, "Email")
 
         emails = get_saved_emails()
 
-        self.email_entry = ttk.Combobox(
+        # CustomTkinter ComboBox acts cleanly and supports rounded corners
+        self.email_entry = ctk.CTkComboBox(
             shell,
             values=emails,
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 13),
+            fg_color="#F3F4F6",          # Soft gray fill
+            text_color=self.text_primary,
+            border_width=0,              # No explicit borders for flat modern look
+            corner_radius=8,
+            height=42,
+            dropdown_fg_color="#FFFFFF",
+            dropdown_text_color=self.text_primary,
+            command=self._on_email_selected_cb, # Combobox item selection bind
         )
-        self.email_entry.pack(fill="x", pady=(4, 16), ipady=5)
+        self.email_entry.pack(fill="x", pady=(6, 20))
+        # Direct key entry string handling bind
+        self.email_entry._entry.bind("<KeyRelease>", self._on_email_selected) 
 
-        self.email_entry.bind(
-            "<<ComboboxSelected>>",
-            self._on_email_selected,
-        )
-
+        # --- Password Field ---
         self._add_label(shell, "Password")
 
-        self.password_entry = ttk.Entry(
+        self.password_entry = ctk.CTkEntry(
             shell,
-            font=("Segoe UI", 11),
+            font=("Segoe UI", 13),
             show="*",
+            fg_color="#F3F4F6",
+            text_color=self.text_primary,
+            border_width=0,
+            corner_radius=8,
+            height=42,
         )
-        self.password_entry.pack(fill="x", pady=(4, 18), ipady=5)
+        self.password_entry.pack(fill="x", pady=(6, 16))
 
+        # --- Remember Me Checkbox ---
         self.remember_var = tk.BooleanVar(value=False)
 
-        ttk.Checkbutton(
+        self.remember_checkbox = ctk.CTkCheckBox(
             shell,
             text="Remember Me",
             variable=self.remember_var,
-        ).pack(anchor="w", pady=(0, 15))
+            text_color=self.text_secondary,
+            font=("Segoe UI", 12),
+            checkbox_width=18,
+            checkbox_height=18,
+            corner_radius=4,
+            border_width=2,
+            border_color="#9CA3AF",
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+        )
+        self.remember_checkbox.pack(anchor="w", pady=(0, 10))
 
-        self.error_label = ttk.Label(
+        # --- Error Information Bar ---
+        self.error_label = ctk.CTkLabel(
             shell,
             text="",
-            style="Error.TLabel",
-            wraplength=330,
+            text_color=self.error_color,
+            font=("Segoe UI", 12),
+            wraplength=350,
+            justify="left",
         )
-        self.error_label.pack(fill="x", pady=(0, 18))
+        self.error_label.pack(fill="x", pady=(5, 15), anchor="w")
 
-        self.login_button = ttk.Button(
+        # --- Premium Login CTA Button ---
+        self.login_button = ctk.CTkButton(
             shell,
             text="Login",
-            style="Login.TButton",
+            font=("Segoe UI", 14, "bold"),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            text_color="#FFFFFF",
+            height=46,
+            corner_radius=8,
             command=self._handle_login,
         )
-        self.login_button.pack(anchor="center")
+        self.login_button.pack(fill="x", pady=(10, 0))
 
+        # Global event binds
         self.bind("<Return>", lambda _event: self._handle_login())
 
+        # Pre-populate defaults if history is found
         if emails:
-            self.email_entry.current(0)
+            self.email_entry.set(emails[0])
             self._on_email_selected()
 
         self.email_entry.focus_set()
 
     def _add_label(self, parent, text):
-        ttk.Label(
+        ctk.CTkLabel(
             parent,
             text=text,
-            style="FieldLabel.TLabel",
+            text_color=self.text_secondary,
+            font=("Segoe UI", 12, "bold"),
         ).pack(anchor="w")
 
     def _handle_login(self):
@@ -136,7 +153,7 @@ class LoginApp(tk.Tk):
         password = self.password_entry.get()
 
         if not email or not password:
-            self._show_error("Enter email and password")
+            self._show_error("Please enter both your email and password.")
             return
 
         self._set_loading(True)
@@ -150,21 +167,15 @@ class LoginApp(tk.Tk):
     def _login_in_background(self, email, password):
         try:
             session = self.auth_service.login(email, password)
-
-            self.after(
-                0,
-                lambda: self._handle_login_success(session),
-            )
-
+            self.after(0, lambda: self._handle_login_success(session))
         except Exception as error:
-            self.after(
-                0,
-                lambda: self._handle_login_error(str(error)),
-            )
+            self.after(0, lambda: self._handle_login_error(str(error)))
+
+    def _on_email_selected_cb(self, choice):
+        self._on_email_selected()
 
     def _on_email_selected(self, event=None):
         email = self.email_entry.get().strip()
-
         password = self.credential_service.get_password(email)
 
         self.password_entry.delete(0, tk.END)
@@ -176,7 +187,7 @@ class LoginApp(tk.Tk):
             self.remember_var.set(False)
 
         self.password_entry.focus()
-        self.password_entry.icursor(tk.END)
+        self.password_entry._entry.icursor(tk.END)
 
     def _remember_user(self, email, password):
         if self.remember_var.get():
@@ -186,23 +197,20 @@ class LoginApp(tk.Tk):
             delete_email(email)
             self.credential_service.delete_password(email)
 
-        self.email_entry["values"] = get_saved_emails()
+        self.email_entry.configure(values=get_saved_emails())
 
     def _handle_login_success(self, session):
         email = self.email_entry.get().strip()
         password = self.password_entry.get()
 
         self._remember_user(email, password)
-
         self.auth_session = session
         self.destroy()
 
     def _handle_login_error(self, message):
         self._set_loading(False)
-
         self.password_entry.delete(0, tk.END)
         self.password_entry.focus_set()
-
         self._show_error(message)
 
     def _set_loading(self, is_loading):
@@ -212,7 +220,6 @@ class LoginApp(tk.Tk):
             text="Logging in..." if is_loading else "Login",
             state=state,
         )
-
         self.email_entry.configure(state=state)
         self.password_entry.configure(state=state)
 
@@ -221,3 +228,8 @@ class LoginApp(tk.Tk):
 
     def _show_error(self, message):
         self.error_label.configure(text=message)
+
+
+if __name__ == "__main__":
+    app = LoginApp()
+    app.mainloop()

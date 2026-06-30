@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 
-from config import CLOUD_URL , LOCAL_URL, WEBSOCKET_URL
+from config import CLOUD_URL, LOCAL_URL, WEBSOCKET_URL
 from tunnel.websocket_client import ZygnWebSocketClient
 
 STATUS_DISCONNECTED = "disconnected"
@@ -11,8 +11,12 @@ STATUS_CONNECTED = "connected"
 STATUS_ERROR = "error"
 STATUS_DOT = "\u25cf"
 
+# Set global appearance and color theme
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
 
-class zygnConnectorApp(tk.Tk):
+
+class zygnConnectorApp(ctk.CTk):
     def __init__(self, auth_session):
         super().__init__()
 
@@ -21,78 +25,105 @@ class zygnConnectorApp(tk.Tk):
         self.last_error = None
         self.websocket_client = None
 
+        # Window Settings
         self.title("ZYGN CONNECTOR")
-        self.geometry("420x360")
-        self.minsize(360, 320)
+        self.geometry("440x480")
         self.resizable(False, False)
-        self.configure(bg="#f6f7f9")
         self.protocol("WM_DELETE_WINDOW", self._handle_window_close)
 
-        self._configure_styles()
+        # Color Palette Configuration (Matching Login Theme)
+        self.bg_color = "#FFFFFF"
+        self.card_bg = "#F3F4F6"         # Light gray for structuring rows
+        self.text_primary = "#111827"    # Dark slate/gray
+        self.text_secondary = "#4B5563"  # Cool gray
+        self.accent_color = "#3B82F6"    # Primary blue
+        self.accent_hover = "#2563EB"    # Darker blue for hover state
+        
+        # Status Color Profiles
+        self.color_success = "#16A34A"   # Green
+        self.color_warning = "#D97706"   # Amber/Orange
+        self.color_danger = "#DC2626"    # Red
+
+        self.configure(fg_color=self.bg_color)
         self._build_layout()
         self._render_state()
 
-    def _configure_styles(self):
-        self.style = ttk.Style(self)
-        self.style.theme_use("clam")
-
-        self.style.configure("Connector.TFrame", background="#f6f7f9")
-        self.style.configure(
-            "Title.TLabel",
-            background="#f6f7f9",
-            foreground="#1f2937",
-            font=("Segoe UI", 18, "bold"),
-        )
-        self.style.configure(
-            "FieldLabel.TLabel",
-            background="#f6f7f9",
-            foreground="#4b5563",
-            font=("Segoe UI", 10, "bold"),
-        )
-        self.style.configure(
-            "Value.TLabel",
-            background="#f6f7f9",
-            foreground="#111827",
-            font=("Segoe UI", 11),
-        )
-        self.style.configure(
-            "Connect.TButton",
-            font=("Segoe UI", 11, "bold"),
-            padding=(28, 10),
-        )
-
     def _build_layout(self):
-        shell = ttk.Frame(self, style="Connector.TFrame", padding=(42, 32))
-        shell.pack(fill="both", expand=True)
+        # Container frame for margins and alignment
+        shell = ctk.CTkFrame(self, fg_color=self.bg_color, corner_radius=0)
+        shell.pack(fill="both", expand=True, padx=40, pady=40)
 
-        title = ttk.Label(shell, text="ZYGN CONNECTOR", style="Title.TLabel")
-        title.pack(anchor="center", pady=(0, 26))
-
-        content = ttk.Frame(shell, style="Connector.TFrame")
-        content.pack(fill="x")
-
-        self._add_label(content, "Status")
-        self.status_label = ttk.Label(content, style="Value.TLabel")
-        self.status_label.pack(anchor="w", pady=(4, 18))
-
-        self._add_label(content, "Cloud")
-        cloud_value = ttk.Label(content, text=CLOUD_URL, style="Value.TLabel")
-        cloud_value.pack(anchor="w", pady=(4, 18))
-
-        self._add_label(content, "Local")
-        local_value = ttk.Label(content, text=LOCAL_URL, style="Value.TLabel")
-        local_value.pack(anchor="w", pady=(4, 28))
-
-        self.action_button = ttk.Button(
+        # App branding header
+        ctk.CTkLabel(
             shell,
-            style="Connect.TButton",
+            text="ZYGN CONNECTOR",
+            text_color=self.text_primary,
+            font=("Segoe UI", 24, "bold"),
+        ).pack(anchor="w", pady=(10, 24))
+
+        # Main Data Frame (Groups the connections and statuses)
+        content = ctk.CTkFrame(shell, fg_color=self.bg_color, corner_radius=0)
+        content.pack(fill="x", expand=True)
+
+        # --- Status Block ---
+        self._add_label(content, "Status")
+        self.status_label = ctk.CTkLabel(
+            content,
+            text="",
+            font=("Segoe UI", 15, "bold"),
+            justify="left",
+        )
+        self.status_label.pack(anchor="w", pady=(4, 20))
+
+        # --- Cloud Endpoint Block ---
+        self._add_label(content, "Cloud URL")
+        cloud_value = ctk.CTkLabel(
+            content,
+            text=CLOUD_URL,
+            text_color=self.text_primary,
+            font=("Segoe UI", 13),
+            fg_color=self.card_bg,
+            corner_radius=6,
+            height=36,
+            anchor="w",
+        )
+        cloud_value.pack(fill="x", pady=(4, 20), ipady=2, padx=2)
+
+        # --- Local Endpoint Block ---
+        self._add_label(content, "Local URL")
+        local_value = ctk.CTkLabel(
+            content,
+            text=LOCAL_URL,
+            text_color=self.text_primary,
+            font=("Segoe UI", 13),
+            fg_color=self.card_bg,
+            corner_radius=6,
+            height=36,
+            anchor="w",
+        )
+        local_value.pack(fill="x", pady=(4, 30), ipady=2, padx=2)
+
+        # --- Premium Full-Width Action Button ---
+        self.action_button = ctk.CTkButton(
+            shell,
+            text="Connect",
+            font=("Segoe UI", 14, "bold"),
+            fg_color=self.accent_color,
+            hover_color=self.accent_hover,
+            text_color="#FFFFFF",
+            height=46,
+            corner_radius=8,
             command=self._handle_action,
         )
-        self.action_button.pack(anchor="center")
+        self.action_button.pack(fill="x", pady=(10, 0))
 
     def _add_label(self, parent, text):
-        label = ttk.Label(parent, text=text, style="FieldLabel.TLabel")
-        label.pack(anchor="w")
+        ctk.CTkLabel(
+            parent,
+            text=text,
+            text_color=self.text_secondary,
+            font=("Segoe UI", 12, "bold"),
+        ).pack(anchor="w")
 
     def _handle_action(self):
         if self.status == STATUS_CONNECTED:
@@ -161,26 +192,59 @@ class zygnConnectorApp(tk.Tk):
     def _render_state(self):
         if self.status == STATUS_CONNECTED:
             self.status_label.configure(
-                text=f"{STATUS_DOT} Connected", foreground="#15803d"
+                text=f"{STATUS_DOT} Connected", text_color=self.color_success
             )
-            self.action_button.configure(text="Disconnect", state="normal")
+            self.action_button.configure(
+                text="Disconnect", 
+                state="normal",
+                fg_color=self.color_danger,
+                hover_color="#B91C1C" # Darker red for disconnect hover
+            )
         elif self.status == STATUS_CONNECTING:
             self.status_label.configure(
-                text=f"{STATUS_DOT} Connecting...", foreground="#b45309"
+                text=f"{STATUS_DOT} Connecting...", text_color=self.color_warning
             )
-            self.action_button.configure(text="Connect", state="disabled")
+            self.action_button.configure(
+                text="Connecting...", 
+                state="disabled",
+                fg_color=self.accent_color
+            )
         elif self.status == STATUS_AUTHENTICATING:
             self.status_label.configure(
-                text=f"{STATUS_DOT} Authenticating...", foreground="#b45309"
+                text=f"{STATUS_DOT} Authenticating...", text_color=self.color_warning
             )
-            self.action_button.configure(text="Connect", state="disabled")
+            self.action_button.configure(
+                text="Authenticating...", 
+                state="disabled",
+                fg_color=self.accent_color
+            )
         elif self.status == STATUS_ERROR:
             self.status_label.configure(
-                text=f"{STATUS_DOT} Error: {self.last_error}", foreground="#dc2626"
+                text=f"{STATUS_DOT} Error: {self.last_error}", text_color=self.color_danger
             )
-            self.action_button.configure(text="Connect", state="normal")
+            self.action_button.configure(
+                text="Connect", 
+                state="normal",
+                fg_color=self.accent_color,
+                hover_color=self.accent_hover
+            )
         else:
             self.status_label.configure(
-                text=f"{STATUS_DOT} Disconnected", foreground="#dc2626"
+                text=f"{STATUS_DOT} Disconnected", text_color=self.color_danger
             )
-            self.action_button.configure(text="Connect", state="normal")
+            self.action_button.configure(
+                text="Connect", 
+                state="normal",
+                fg_color=self.accent_color,
+                hover_color=self.accent_hover
+            )
+
+
+if __name__ == "__main__":
+    # Dummy session runner logic for isolated testing
+    class DummySession:
+        access_token = "mock_token"
+        employee_id = "mock_id"
+        
+    app = zygnConnectorApp(DummySession())
+    app.mainloop()
